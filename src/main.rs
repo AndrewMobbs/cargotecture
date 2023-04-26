@@ -5,19 +5,15 @@ use crate::parse_dockerfile::parse_dockerfile;
 use anyhow::{Result,anyhow};
 
 #[allow(dead_code)]
-fn debug_dump_dockerfile_struct(block: &parse_dockerfile::DockerfileBlock) {
+fn debug_dump_dockerfile_struct(block: &parse_dockerfile::ParsedContainer) {
     let json = serde_json::to_string_pretty(&block).unwrap();
     println!("{}", json);
 }
 
 pub fn demo(path: &str) -> Result<()> {
-    let block = parse_dockerfile(path)?;
-
-    let bdd = gen_sysml::generate_sysml_bdd(&block);
-    let ad = gen_sysml::generate_sysml_ad(&block);
-    print!("------------------------------\n{}\n", bdd);
-    print!("------------------------------\n{}\n", ad);
-    
+    let container = parse_dockerfile(path)?;
+    let parts=gen_sysml::sysml_cargotecture_package(&container);
+    print!("{}",parts);
     Ok(())
 }
 

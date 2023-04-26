@@ -24,8 +24,8 @@ impl Default for Protocol {
 impl Display for Protocol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Protocol::Tcp => write!(f, "tcp"),
-            Protocol::Udp => write!(f, "udp"),
+            Protocol::Tcp => write!(f, "TCP"),
+            Protocol::Udp => write!(f, "UDP"),
         }
     }
 }
@@ -53,7 +53,7 @@ impl Default for Port {
 }
 /// A type representing a container as specified by a Docker-style Containerfile
 #[derive(Debug, Serialize)]
-pub struct DockerfileBlock {
+pub struct ParsedContainer {
     pub name: String,
     pub base_image: String,
     pub labels: HashMap<String, String>,
@@ -128,7 +128,7 @@ fn parse_misc_instruction(inst: &dockerfile_parser::MiscInstruction) -> Port {
     }
 }
 
-fn extract_dockerblock(dockerfile: &dockerfile_parser::Dockerfile) -> Result<DockerfileBlock> {
+fn extract_dockerblock(dockerfile: &dockerfile_parser::Dockerfile) -> Result<ParsedContainer> {
     let mut name = String::new();
     let mut base_image = String::new();
     let mut labels = HashMap::new();
@@ -169,7 +169,7 @@ fn extract_dockerblock(dockerfile: &dockerfile_parser::Dockerfile) -> Result<Doc
             }
         }
     }
-    let block = DockerfileBlock {
+    let block = ParsedContainer {
         name,
         base_image,
         labels,
@@ -196,7 +196,7 @@ fn debug_dockerfile_parse(dockerfile: &dockerfile_parser::Dockerfile) {
 /// A function to parse a dockerfile into a DockerfileBlock structure
 /// Uses https://github.com/HewlettPackard/dockerfile-parser-rs/ for basic parsing
 ///  
-pub fn parse_dockerfile(path: &str) -> Result<DockerfileBlock> {
+pub fn parse_dockerfile(path: &str) -> Result<ParsedContainer> {
     let f = File::open(path).expect("file must be readable");
   
     let dockerfile = Dockerfile::from_reader(f)?;

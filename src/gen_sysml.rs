@@ -1,86 +1,69 @@
 use crate::parse_dockerfile;
 
-// Generate an Activity Diagram representation of a dockerfile
-pub fn generate_sysml_ad(block: &parse_dockerfile::DockerfileBlock) -> String {
-    let mut ad = format!(
-        "package {} {{\n\
-            import Activities::*;\n\
-            activity build_{} {{\n",
-           block.name, block.name
-       );
-       
-    for (index, line) in block.containerfile.iter().enumerate() {
-        ad += &format!(
-            "\n\
-             action Command{} {{\n\
-                 value command: String = \"{}\";\n\
-             }};",
-            index, line
-        );
+static PACKAGE_HEADER:&str = r#" {
+    import ScalarValues::*;
+    
+    attribute def image;
+    attribute def label;
+    attribute def maintainer;
+    attribute def mountPoint;
+
+    // Part Definition: Container
+    part def Container {
+        attribute image: String;
+        attribute label: String[0..*];
+        attribute maintainer: String[0..*];
+
+        port networkPorts: NetworkPort[0..*];
+        port volumePorts: VolumePort[0..*];
     }
 
-    for index in 0..(block.containerfile.len() - 1) {
-        ad += &format!(
-            "\n\
-             control Command{}_to_Command{}: Command{};",
-            index, index + 1, index + 1
-        );
+    // Port Definition: NetworkPort
+    port def NetworkPort {
+        enum def Protocol {
+            enum UDP;
+            enum TCP;
+        }
+
+        attribute protocol: Protocol;
+        attribute portNumber: Integer;
     }
 
-    ad += "\n}"; // Close Activity
-    ad += "\n}"; // Close package
-    ad
+    // Port Definition: VolumePort
+    port def VolumePort {
+        attribute mountPoint: String;
+    }
+    "#;
+/// Generate a SysMLv2 Package for the parsed dockerfile
+pub fn sysml_cargotecture_package(container: &parse_dockerfile::ParsedContainer) -> String {
 
-}
-/// Generate a SysML Block Definition Diagram for the parsed dockerfile
-pub fn generate_sysml_bdd(block: &parse_dockerfile::DockerfileBlock) -> String {
-    let mut bdd = format!(
-        "package {} {{\n\
-            import ScalarValues::*;\n\
-            import Base::*;\n\n\
-            block «Container» {} {{\n",
-           block.name, block.name
-       );
-
-
-    for (index, exposed_port) in block.exposed_ports.iter().enumerate() {
-        bdd += &format!(
-            "\n\
-             port port{}: Port {{\n\
-                 in protocol: String = \"{}\";\n\
-                 in portNumber: Integer = {};\n\
-             }};\n",
-            index, exposed_port.protocol, exposed_port.port_number
-        );
+    let mut package=format!("package {}Model",container.name);
+    package.push_str(PACKAGE_HEADER);
+    package.push_str(&format!("part {}System {{\n", container.name));
+    package.push_str(&format!("        part {}: Container {{\n", container.name));
+    package.push_str(&format!("            attribute image redefines image = \"{}\";\n", container.base_image));
+    
+    for (key, value) in &container.labels {
+        package.push_str(&format!("            attribute {} redefines label = \"{}\";\n", key, value));
     }
 
-    for (index, volume) in block.volumes.iter().enumerate() {
-        bdd += &format!(
-            "\n\
-             port volume{}: «Data Volume» Port {{ \nin mount: String = \"{}\" \n }};\n",
-            index, volume.mount_point
-        );
+    for (index, exposed_port) in container.exposed_ports.iter().enumerate() {
+        package.push_str(&format!("            port port{}: NetworkPort {{\n", index));
+        package.push_str(&format!("                protocol redefines protocol = Protocol::{};\n", exposed_port.protocol));
+        package.push_str(&format!("                portNumber redefines portNumber = {};\n", exposed_port.port_number));
+        package.push_str("            }\n");
     }
 
-    for (index, volume) in block.volumes.iter().enumerate() {
-        bdd += &format!(
-            "\n\
-             block «Data Volume» Volume{} {{\n\
-                 value mount: String = \"{}\";\n\
-            }};\n",
-            index, volume.mount_point
-        );
+    for (index, volume) in container.volumes.iter().enumerate() {
+        package.push_str(&format!("            port volume{}: VolumePort {{\n", index));
+        package.push_str(&format!("                mountPoint redefines mountPoint = \"{}\";\n", volume.mount_point));
+        package.push_str("            }\n");
     }
 
-    for (index, _) in block.volumes.iter().enumerate() {
-        bdd += &format!(
-            "\n\
-             connect {}::volume{} to Volume{};",
-            block.name, index, index
-        );
+    package.push_str("        }\n");
+    package.push_str("    }\n");
+    package.push_str("}\n");
+
+    package
     }
-    bdd += &format!("allocate «allocate» build_{} to {}",block.name,block.name);
-    bdd += "\n}"; // Close Block
-    bdd += "\n}"; // Close Package
-    bdd
-}
+
