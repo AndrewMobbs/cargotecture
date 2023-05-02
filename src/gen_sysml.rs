@@ -18,6 +18,10 @@ static PACKAGE_HEADER:&str = r#" {
         port volumePorts: VolumePort[0..*];
     }
 
+    part def BaseImage {
+        attribute imageName: String;
+    }
+
     // Port Definition: NetworkPort
     port def NetworkPort {
         enum def Protocol {
@@ -40,8 +44,11 @@ pub fn sysml_cargotecture_package(container: &parse_dockerfile::ParsedContainer)
     let mut package=format!("package {}Model",container.name);
     package.push_str(PACKAGE_HEADER);
     package.push_str(&format!("part {}System {{\n", container.name));
+    package.push_str(&format!("        part {}Base: BaseImage {{\n",container.name));
+    package.push_str(&format!("                attribute imageName redefines imageName = \"{}\";\n", container.base_image));
+    package.push_str("            }\n");
+
     package.push_str(&format!("        part {}: Container {{\n", container.name));
-    package.push_str(&format!("            attribute image redefines image = \"{}\";\n", container.base_image));
     
     for (key, value) in &container.labels {
         package.push_str(&format!("            attribute {} redefines label = \"{}\";\n", key, value));
@@ -60,9 +67,9 @@ pub fn sysml_cargotecture_package(container: &parse_dockerfile::ParsedContainer)
         package.push_str("            }\n");
     }
 
-    package.push_str("        }\n");
-    package.push_str("    }\n");
-    package.push_str("}\n");
+    package.push_str("        }\n"); // Close Container part
+    package.push_str("    }\n"); // Close System Part
+    package.push_str("}\n");// Close Package
 
     package
     }

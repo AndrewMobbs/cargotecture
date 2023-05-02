@@ -1,13 +1,14 @@
 // Copyright Andrew Mobbs 2023
+use dockerfile_parser::{Dockerfile, Instruction, Result};
+use crate::get_basename;
+use escape_string;
+use serde::{Deserialize, Serialize};
 use std::{
-    fs::File,
-    path::Path,
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    fs::File,
+    io::{BufReader, Read},
 };
-use dockerfile_parser::{Result, Dockerfile, Instruction};
-use serde::{Deserialize, Serialize};
-use escape_string;
 
 #[derive(Debug, Deserialize,Serialize,PartialEq)]
 pub enum Protocol {
@@ -25,7 +26,7 @@ impl Display for Protocol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Protocol::Tcp => write!(f, "TCP"),
-            Protocol::Udp => write!(f, "UDP"),
+            Protocol::Udp => write!(f, "udp"),
         }
     }
 }
@@ -193,20 +194,30 @@ fn debug_dockerfile_parse(dockerfile: &dockerfile_parser::Dockerfile) {
         }
       }  
 }
+pub fn parse_containerfile(reader: Box<dyn Read>,name: &str) -> Result<ParsedContainer> {
+    
+    let dockerfile = Dockerfile::from_reader(reader)?;
+    //debug_dockerfile_parse(&dockerfile);
+    let mut block=extract_dockerblock(&dockerfile)?;
+    if block.name == "" {
+        block.name=name.to_string();
+    }
+    Ok(block)
+}
+
+
+
 /// A function to parse a dockerfile into a DockerfileBlock structure
 /// Uses https://github.com/HewlettPackard/dockerfile-parser-rs/ for basic parsing
 ///  
 pub fn parse_dockerfile(path: &str) -> Result<ParsedContainer> {
     let f = File::open(path).expect("file must be readable");
-  
-    let dockerfile = Dockerfile::from_reader(f)?;
-    //debug_dockerfile_parse(&dockerfile);
-    let mut block=extract_dockerblock(&dockerfile)?;
-    if block.name == "" {
-        block.name =  Path::new(path).file_name().unwrap().to_os_string().into_string().unwrap();
-    }
-    Ok(block)
+    let r= Box::new(BufReader::new(f));
+    
+    let name=get_basename(path);
+    parse_containerfile(r,&name)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
