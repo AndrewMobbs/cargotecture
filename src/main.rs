@@ -105,7 +105,7 @@ fn main() {
             let reader = create_reader(filename.as_deref());
             let block=parse_composefile(reader);
             match block{
-                Ok(()) => println!("Parse successful"),
+                Ok(block) => println!("Parse successful"),
                 Err(err) => println!("Parse failed: {}", err),
             };
         }
